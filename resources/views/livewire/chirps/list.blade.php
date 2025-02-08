@@ -7,9 +7,33 @@ use function Livewire\Volt\{on, state};
 
 $getChirps = fn() => ($this->chirps = Chirp::with('user')->latest()->get());
 
-state(['chirps' => $getChirps]);
+state(['chirps' => $getChirps, 'editing' => null]);
 
-on(['chirp-created' => $getChirps]);
+$edit = function (Chirp $chirp) {
+    $this->editing = $chirp;
+
+    $this->getChirps();
+};
+
+$disableEditing = function () {
+    $this->editing = null;
+
+    return $this->getChirps();
+};
+
+$delete = function (Chirp $chirp) {
+    $this->editing = null;
+
+    $chirp->delete();
+
+    $this->getChirps();
+};
+
+on([
+    'chirp-created' => $getChirps,
+    'chirp-update' => $disableEditing,
+    'chirp-edit-canceled' => $disableEditing
+]);
 
 ?>
 
@@ -37,11 +61,51 @@ on(['chirp-created' => $getChirps]);
                         <small
                             class="ml-2 text-sm text-gray-600">{{ $chirp->created_at->format('j M Y, g:i a') }}</small>
 
+                            @unless ($chirp->created_at->eq($chirp->updated_at))
+                                <small class="text-sm text-gray-600"> &middot; {{ __('edited') }}</small>
+                            @endunless
                     </div>
 
-                </div>
+                    @if ($chirp->user->is(auth()->user()))
+                        <x-dropdown>
 
-                <p class="mt-4 text-lg text-gray-900">{{ $chirp->message }}</p>
+                            <x-slot name="trigger">
+
+                                <button>
+
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+
+                                        <path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" />
+
+                                    </svg>
+
+                                </button>
+
+                            </x-slot>
+
+                            <x-slot name="content">
+
+                                <x-dropdown-link wire:click="edit({{ $chirp->id }})">
+
+                                    {{ __('Edit') }}
+
+                                </x-dropdown-link>
+
+                                <x-dropdown-link wire:click='delete({{ $chirp->id }})' wire:confirm="Are you sure to delete this chirp?">
+                                    {{ __('Delete') }}
+                                </x-dropdown-link>
+                            </x-slot>
+
+                        </x-dropdown>
+                    @endif
+
+                </div>
+                
+                @if ($chirp->is($editing))
+                    <livewire:chirps.edit :chirp="$chirp" :key="$chirp->id"/>
+                @else
+                    <p class="mt-4 text-lg text-gray-900">{{ $chirp->message }}</p>
+                @endif
 
             </div>
 
